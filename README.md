@@ -3,7 +3,7 @@ This package provides a PHP implementation of EIP-4361: Sign In With Ethereum.
 
 ## Installation
 ```shell
-composer require lz/siwe
+composer require lzqq/siwe
 ```
 ## Usage
 1. The wallet is connected to the client, then the wallet address is sent to the server 

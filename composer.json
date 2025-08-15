@@ -1,5 +1,5 @@
 {
-  "name": "lz/siwe",
+  "name": "lzqq/siwe",
   "description": "Ethereum Authentication for PHP",
   "type": "library",
   "license": "MIT",
@@ -13,7 +13,7 @@
   },
   "authors": [
     {
-      "name": "lz",
+      "name": "lzqq",
       "email": ""
     }
   ],
