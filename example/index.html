@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ethereum Authentication for PHP Example</title>
+</head>
+<body>
+
+<div id="user" style="display: none;">
+    <p>Your address from session: <span id="user-address"></span></p>
+    <button id="logout">Log out</button>
+</div>
+
+<div id="guest" style="display: none;">
+    <button id="web3-connect">Connect wallet</button>
+</div>
+
+<script type="module">
+
+    // As a library for connecting a wallet you can use:
+    // - ConnectKit - https://docs.family.co/connectkit
+    // - Reown AppKit - https://reown.com/appkit
+    // - RainbowKit - https://www.rainbowkit.com/
+    // - Web3-Onboard - https://onboard.blocknative.com/
+
+    // !!! This code is provided as an example, it should not be used in production. Don't request dependencies this way.
+    import Onboard from "https://esm.sh/@web3-onboard/core@2.23.0";
+    import injectedModule from "https://esm.sh/@web3-onboard/injected-wallets@2.11.2";
+    import {ethers} from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.min.js";
+
+    const injected = injectedModule();
+    const onboard = Onboard({
+        wallets: [injected],
+        chains: [
+            {
+                id: "0x1",
+                token: "ETH",
+                label: "Ethereum Mainnet",
+                rpcUrl: "https://1rpc.io/eth"
+            }
+        ]
+    });
+
+    const connectButton = document.getElementById("web3-connect");
+    const logoutButton = document.getElementById("logout");
+    const userSection = document.getElementById("user");
+    const guestSection = document.getElementById("guest");
+    const userAddressLabel = document.getElementById("user-address");
+
+    connectButton.addEventListener("click", connectWallet);
+    logoutButton.addEventListener("click", logout);
+    getProfile();
+
+
+    async function connectWallet() {
+        const [wallet] = await onboard.connectWallet();
+        if (wallet) {
+            // In case of using ethers, we create provider and signer objects, and also get the wallet address
+            const ethersProvider = new ethers.BrowserProvider(wallet.provider, "any");
+            const signer = await ethersProvider.getSigner();
+            const address = await signer.getAddress();
+
+            try {
+                // We receive a message for signing from API
+                const siweMessage = await getSIWEMessage(address);
+                // We sign it via sign_personal
+                const signature = await signer.signMessage(siweMessage);
+                // We send the signature back to the server
+                await authorize(signature);
+                await getProfile();
+            } catch (error) {
+                console.error(error.message);
+            }
+        }
+    }
+
+    async function fetchJson(url, options = {}) {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            ...options
+        });
+        return await response.json();
+    }
+
+    async function getProfile() {
+        const profile = await fetchJson("/api.php?action=profile");
+        if (profile.status === "success") {
+            userAddressLabel.textContent = profile.profile.address;
+            toggleAuthState(true);
+        } else {
+            toggleAuthState(false);
+        }
+    }
+
+    async function logout() {
+        await fetchJson("/api.php?action=logout");
+        toggleAuthState(false);
+    }
+
+    async function getSIWEMessage(address) {
+        const { siwe_message, status, message } = await fetchJson("/api.php?action=get_siwe_message", {
+            body: JSON.stringify({ address })
+        });
+        if (status === "success") return siwe_message;
+        throw new Error(message || "Failed to get SIWE message");
+    }
+
+    async function authorize(signature) {
+        const { status, message } = await fetchJson("/api.php?action=authorize", {
+            body: JSON.stringify({ signature })
+        });
+        if (status !== "success") throw new Error(message || "Authorization failed");
+    }
+
+    function toggleAuthState(isAuthenticated) {
+        userSection.style.display = isAuthenticated ? "block" : "none";
+        guestSection.style.display = isAuthenticated ? "none" : "block";
+    }
+</script>
+
+</body>
+</html>
